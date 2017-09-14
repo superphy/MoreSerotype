@@ -2,4 +2,4 @@
 *.pyc
 *.json
 *.xml
-data/DB*g
+data/DB*
