@@ -1,18 +1,13 @@
 from module import JsonHelper
 import os
 
-INPUT_FILE = 'data/strains.json'
-OUTPUT_FILE = 'data/genome_filenames_filtered.json'
-GENOME_FILES_DIR = '/home/sam/moria/enterobase_db'
+STRAIN_FILE = "data/strains.json"
 
-
-
-
-def filter_genome():
+def filter_genome(genome_dir, filtered_file):
     print("Start filtering genome")
-    strains = JsonHelper.read_from_json(INPUT_FILE)
+    strains = JsonHelper.read_from_json(STRAINS_FILE)
     genome_filenames_filtered = []
-    genome_filenames = os.listdir(GENOME_FILES_DIR)
+    genome_filenames = os.listdir(genome_dir)
     genome_filenames_len = len(genome_filenames)
     for index, filename in enumerate(genome_filenames):
         print("{}/{} genome files filtered".format(index, genome_filenames_len))
@@ -24,4 +19,4 @@ def filter_genome():
                 continue
             if assembly_barcode in filename:
                 genome_filenames_filtered.append(filename)
-    JsonHelper.write_to_json(genome_filenames_filtered, OUTPUT_FILE)
+    JsonHelper.write_to_json(genome_filenames_filtered, filtered_file)

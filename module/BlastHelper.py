@@ -1,21 +1,17 @@
 import subprocess
 import os
-GENOME_DIR = "data/modified_genome/"
-ALLELE_FILE = "data/EcOH.fasta"
-DB_FILE = "data/DB/SerotypedGenome.fasta"
-RESULT_FILE = "output/blast_result.xml"
-def makeBlastDB(genome_dir=GENOME_DIR, allele_file=ALLELE_FILE, db_file=DB_FILE, result_file=RESULT_FILE):
-    OUTPUT_DIR = os.path.split(DB_FILE)[0]
-    if not os.path.exists(OUTPUT_DIR):
-        os.makedirs(OUTPUT_DIR)
-    OUTPUT_DIR2 = os.path.split(RESULT_FILE)[0]
-    if not os.path.exists(OUTPUT_DIR2):
-        os.makedirs(OUTPUT_DIR2)
-    cmd = str("cat "+ GENOME_DIR +"* >> " + DB_FILE)
-    cmd2 = str("makeblastdb -dbtype nucl -in " + DB_FILE)
+def makeBlastDB(genome_dir, db_file):
+    output_dir = os.path.split(db_file)[0]
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    cmd = str("cat "+ genome_dir +"* >> " + db_file)
+    cmd2 = str("makeblastdb -dbtype nucl -in " + db_file)
     subprocess.call(cmd, shell=True)
     subprocess.call(cmd2, shell=True)
 
-def blastn():
-    cmd = str("blastn -query "+ALLELE_FILE+" -db "+ DB_FILE +" -out " + RESULT_FILE + " -outfmt 5")
+def blastn(allele_file, db_file, result_file):
+    result_dir = os.path.split(result_file)[0]
+    if not os.path.exists(result_dir):
+        os.makedirs(result_dir)
+    cmd = str("blastn -query "+allele_file+" -db "+ db_file +" -out " + result_file + " -outfmt 5")
     subprocess.call(cmd, shell=True)

@@ -3,14 +3,13 @@ from Bio.Blast import NCBIXML
 from module import SerotypeHelper, JsonHelper
 import logging
 
-RESULT_FILE = "output/blast_result.xml"
-DICT_FILE = "output/genome_dict.json"
 BLACKLIST_FILE = "output/blacklist_genomes.json"
+DICT_FILE = "output/genome_dict.json"
 
-def create_genome_result(result_file=RESULT_FILE, dict_file=DICT_FILE, blacklist_file=BLACKLIST_FILE):
+def create_genome_result(result_file):
     genome_dict = defaultdict(list)
-    blacklist_genome = []
-    blast_result = NCBIXML.parse(open(RESULT_FILE))
+    blacklist_genomes = []
+    blast_result = NCBIXML.parse(open(result_file))
     if not blast_result:
         return
     for iteration in blast_result:
@@ -22,26 +21,26 @@ def create_genome_result(result_file=RESULT_FILE, dict_file=DICT_FILE, blacklist
             if not alignment.hsps:
                 continue
             genome_desc = alignment.hit_def
-            if genome_desc in blacklist_genome:
+            if genome_desc in blacklist_genomes:
                 continue
             genome_serotypes = SerotypeHelper.getSerotypes(genome_desc)
             is_mismatch = SerotypeHelper.isMismatch(allele_serotype, genome_serotypes)
             is_same_class = SerotypeHelper.isSameClass(allele_serotype, genome_serotypes)
             for hsp in alignment.hsps:
-                percent_identity = hsp.identities / iteration.query_length
-                if percent_identity < 0.97:
+                match_len = hsp.identities
+                query_len = iteration.query_length
+                percent_identity = match_len / query_len
+                if percent_identity < 0.97 or not is_same_class:
                     continue
-                if percent_identity == 1 and is_mismatch:
-                    blacklist_genome.append(
-                        genome_desc + 
-                        " evident: blast_result.xml {} iter {} alignment".format(iteration.query_id, alignment.hit_id)
-                    )
-                    continue
-                if not is_same_class:
+                if match_len == query_len:
+                    if is_mismatch:
+                        print("{0} and {1} are mismatch. {1} added to blacklist".format(allele_desc, genome_desc))
+                        blacklist_genomes.append(genome_desc)
                     continue
                 new_entry = {
                     "allele_desc": allele_desc,
-                    "identity": percent_identity,
+                    "genome_desc": genome_desc,
+                    "identity": "{}/{}".format(hsp.identities, iteration.query_length),
                     "Align Seq": {
                         "query": hsp.query,
                         "match": hsp.match,
@@ -52,17 +51,13 @@ def create_genome_result(result_file=RESULT_FILE, dict_file=DICT_FILE, blacklist
     # sort genome_dict by identity
     genome_dict_sorted = {}
     for genome_desc, alignments in genome_dict.items():
+        #  filter out alleles associated with blacklisted genome
+        if genome_desc in blacklist_genomes:
+            continue
         genome_dict_sorted[genome_desc] = sorted(alignments, key=lambda alignment: alignment["identity"], reverse=True)
         
     JsonHelper.write_to_json(genome_dict_sorted,DICT_FILE)
-    JsonHelper.write_to_json(blacklist_genome, BLACKLIST_FILE)
+    JsonHelper.write_to_json(blacklist_genomes, BLACKLIST_FILE)
 
 def addUsefulAllele():
-    genome_dict = JsonHelper.read_from_json(DICT_FILE)
-    if not genome_dict:
-        logging.info("no genome_dict "+DICT_FILE+" found")
-        return
-    for genome_dict, alignments in genome_dict.items():
-        if "wzx":
-            pass
-    # TODO
+    

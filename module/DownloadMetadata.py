@@ -1,10 +1,10 @@
 import requests
 from module import JsonHelper
 
-OUTPUT_FILE = "data/strains.json"
-OUTPUT_FILE2 = "data/experiment.json"
 
-def download_metadata():
+STRAIN_FILE = "data/strains.json"
+
+def download_metadata(experiment_file):
     # Downloads all the E.coli genomes from Enterobase.
     options = {
         'experiment':'assembly_stats',
@@ -36,5 +36,5 @@ def download_metadata():
                 print(' Warning: no assembly barcode found')
         strains[index]['assembly_barcode'] = assembly_barcode
     
-    JsonHelper.write_to_json(strains, OUTPUT_FILE)
-    JsonHelper.write_to_json(experiment, OUTPUT_FILE2)
+    JsonHelper.write_to_json(strains, STRAIN_FILE)
+    JsonHelper.write_to_json(experiment, experiment_file)
