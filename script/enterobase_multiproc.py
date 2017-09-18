@@ -7,6 +7,11 @@ from threading import Thread
 from queue import Queue
 import multiprocessing
 
+'''
+Multi-processing version of enterobase_db. Expected runtime = enterobase_db.py runtime / # CPU core
+54116 files downloaded in 66205 seconds
+'''
+
 def worker():
     while True:
         (identifier, barcode) = TASK_QUEUE.get()
@@ -20,8 +25,6 @@ TASK_QUEUE = Queue()
 START_TIME = time.time()
 THREADS = [Thread(target=worker) for _ in range(NUM_WORKERS)]
 
-
-# Multi-processing version of enterobase_db. Expected runtime = enterobase_db.py runtime / # CPU core
 
 
 def get(identifier, barcode):
