@@ -1,11 +1,10 @@
 import os
-import requests
+import multiprocessing
 import time
-from time import sleep
 import json
 from threading import Thread
 from queue import Queue
-import multiprocessing
+import requests
 
 '''
 Multi-processing version of enterobase_db. Expected runtime = enterobase_db.py runtime / # CPU core
@@ -22,8 +21,8 @@ INPUT_FILE = "strains.json"
 OUTPUT_DIR = 'enterobase_db'
 NUM_WORKERS = multiprocessing.cpu_count()
 TASK_QUEUE = Queue()
-START_TIME = time.time()
 THREADS = [Thread(target=worker) for _ in range(NUM_WORKERS)]
+START_TIME = time.time()
 
 
 
@@ -31,7 +30,10 @@ def get(identifier, barcode):
     task_start_time = time.time()
     fn = OUTPUT_DIR + '/' + str(barcode) + '.fasta'
     print("Start downloading {}".format(fn))
-    f = requests.get('http://enterobase.warwick.ac.uk/upload/download?assembly_id=' + str(identifier) + '&database=ecoli')
+    try:
+        f = requests.get('http://enterobase.warwick.ac.uk/upload/download?assembly_id=' + str(identifier) + '&database=ecoli')
+    except:
+        time.sleep(10)
     if not f.text == 'No Assembly or strain record found':
         with open(fn, 'w') as fl:
             fl.write(f.text)
@@ -41,7 +43,6 @@ def get(identifier, barcode):
 
 
 def getAll(strains):
-    strains_len = len(strains)
     for row in strains:
         identifier = row['best_assembly']
         barcode = row['assembly_barcode']
@@ -67,7 +68,6 @@ def enterobase():
             strains = json.load(handler)
             handler.close()
     else:
-        pass
         options = {
             'no_legacy':'true',
             'experiment':'assembly_stats',

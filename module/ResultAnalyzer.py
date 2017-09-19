@@ -8,6 +8,8 @@ BLACKLIST_FILE = "output/blacklist_genomes.json"
 DICT_FILE = "output/genome_dict.json"
 GENE_PAIRS = [('wzx','wzy'),('wzt','wzm')]
 
+
+
 def create_genome_result(result_file):
     genome_dict = defaultdict(list)
     blacklist_genomes = []
