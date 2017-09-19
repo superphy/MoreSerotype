@@ -43,17 +43,19 @@ def isSameClass(allele_serotype, genome_serotype):
         return True
     return False
 
-def initialize_dict(allele_file, dict_file):
+def initialize_dict(allele_file):
     serotype_dict = defaultdict(list)
     allele_seqs = list(SeqIO.parse(allele_file, 'fasta'))
     for allele_seq in allele_seqs:
         desc = allele_seq.description
         serotype = getSerotype(desc)
         if serotype == "":
+            # These alleles have novel serotype. Ignored for now.
             continue
         new_entry = {
-            "desc": allele_seq.description,
-            "seq": str(allele_seq.seq)
+            "des": allele_seq.description,
+            "seq": str(allele_seq.seq),
+            "num": len(serotype_dict[serotype])+1
         }
         serotype_dict[serotype].append(new_entry)
-    JsonHelper.write_to_json(serotype_dict, dict_file)
+    JsonHelper.write_to_json(serotype_dict, 'output/serotype_dict.json')

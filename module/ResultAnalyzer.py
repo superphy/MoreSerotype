@@ -2,6 +2,7 @@ from collections import defaultdict
 from Bio.Blast import NCBIXML
 from module import SerotypeHelper, JsonHelper
 import logging
+import Bio
 
 BLACKLIST_FILE = "output/blacklist_genomes.json"
 DICT_FILE = "output/genome_dict.json"
@@ -107,12 +108,16 @@ def getGeneName(allele_desc):
 
 def addUsefulAllele():
     genome_dict = JsonHelper.read_from_json(DICT_FILE)
-    serotype_dict = defaultdict(list)
+    serotype_dict = JsonHelper.read_from_json("output/serotype_dict.json")
+    seq_hash = {}
     # fill serotype_dict
     for genome_desc, alignments in genome_dict.items():
         new_dict = defaultdict(list)
         for alignment in alignments:
-            new_item = {'seq':'', 'gene':''}
+            new_item = {
+                'seq':'',
+                'gene':'',
+                'des': "part of "+genome_desc.split("|")[0]}
             sbject = alignment['Align Seq']['sbjct']
             allele_desc = alignment["allele_desc"]
             serotype = SerotypeHelper.getSerotype(allele_desc)
@@ -132,6 +137,16 @@ def addUsefulAllele():
         for serotype, alleles in new_dict.items():
             for allele in alleles:
                 # add only non-repeated sequence
-                if allele['seq'] not in serotype_dict[serotype]:
-                    serotype_dict[serotype].append(allele['seq'])
+                seq_list = [s_allele['seq']
+                                for s_alleles in serotype_dict.values()
+                                    for s_allele in s_alleles]
+                new_seq = allele['seq']
+                if new_seq not in seq_hash:
+                    num = len(serotype_dict[serotype])+1
+                    seq_hash[new_seq] = True
+                    new_entry = {
+                        'seq':allele['seq'],
+                        'num':num,
+                        'des':allele['des']}
+                    serotype_dict[serotype].append(new_entry)
     JsonHelper.write_to_json(serotype_dict, "output/serotype_dict.json")

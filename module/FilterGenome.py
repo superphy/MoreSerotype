@@ -1,7 +1,7 @@
 from module import JsonHelper
 import os
 
-STRAIN_FILE = "data/strains.json"
+STRAINS_FILE = "data/strains.json"
 
 def filter_genome(genome_dir, filtered_file):
     print("Start filtering genome")

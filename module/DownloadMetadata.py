@@ -1,4 +1,5 @@
 import requests
+import random
 from module import JsonHelper
 
 
@@ -36,5 +37,5 @@ def download_metadata(experiment_file):
                 print(' Warning: no assembly barcode found')
         strains[index]['assembly_barcode'] = assembly_barcode
     
-    JsonHelper.write_to_json(strains, STRAIN_FILE)
+    JsonHelper.write_to_json(random.sample(strains, 50), STRAIN_FILE)
     JsonHelper.write_to_json(experiment, experiment_file)
