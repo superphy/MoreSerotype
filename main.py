@@ -23,8 +23,8 @@ def main():
     BlastHelper.blastn(ALLELE_FILE, "data/DB/SerotypedGenome.fasta", BLAST_RESULT)
     # 7. Create a json formatted serotype dictionary of all known/confident allele sequences
     '''
-    SerotypeHelper.initialize_dict(ALLELE_FILE, "output/serotype_dict.json")
-    ResultAnalyzer.create_genome_result(BLAST_RESULT)
+    # SerotypeHelper.initialize_dict(ALLELE_FILE, "output/serotype_dict.json")
+    # ResultAnalyzer.create_genome_result(BLAST_RESULT)
     ResultAnalyzer.addUsefulAllele()
 
 if __name__ == '__main__':

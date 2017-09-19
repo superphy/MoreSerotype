@@ -5,6 +5,7 @@ import logging
 
 BLACKLIST_FILE = "output/blacklist_genomes.json"
 DICT_FILE = "output/genome_dict.json"
+GENE_PAIRS = [('wzx','wzy'),('wzt','wzm')]
 
 def create_genome_result(result_file):
     genome_dict = defaultdict(list)
@@ -59,5 +60,78 @@ def create_genome_result(result_file):
     JsonHelper.write_to_json(genome_dict_sorted,DICT_FILE)
     JsonHelper.write_to_json(blacklist_genomes, BLACKLIST_FILE)
 
+def filterGenePair_helper(allele_dict, gene):
+    for serotype, alleles in allele_dict.items():
+        for allele in alleles:
+            if allele['gene'] == gene:
+                allele_dict[serotype].remove(allele)
+    return allele_dict
+
+def filterGenePair(allele_dict):
+    '''
+    Give a dict with structure:
+        {serotype1:
+            [{seq, gene},
+            {seq, gene},
+            {seq, gene},
+            ...]
+        {serotype1:
+            [{seq, gene},
+            {seq, gene},
+            {seq, gene},
+            ...]
+        ...
+        }
+    if singles of gene pairs exist, filter them out.
+    Then return the filtered allele_dict
+    '''
+    # get list of genes
+    alleles = list(allele_dict.values())
+    gene_list = [allele['gene']
+                    for alleles in allele_dict.values()
+                        for allele in alleles]
+    for a, b in GENE_PAIRS:
+        if (a in gene_list) and (b not in gene_list):
+            allele_dict = filterGenePair_helper(allele_dict, a)
+        if (b in gene_list) and (a not in gene_list):
+            allele_dict = filterGenePair_helper(allele_dict, b)
+    return allele_dict
+
+def getGeneName(allele_desc):
+    for a, b in GENE_PAIRS:
+        if a in allele_desc:
+            return a
+        if b in allele_desc:
+            return b
+    return ""
+
 def addUsefulAllele():
-    
+    genome_dict = JsonHelper.read_from_json(DICT_FILE)
+    serotype_dict = defaultdict(list)
+    # fill serotype_dict
+    for genome_desc, alignments in genome_dict.items():
+        new_dict = defaultdict(list)
+        for alignment in alignments:
+            new_item = {'seq':'', 'gene':''}
+            sbject = alignment['Align Seq']['sbjct']
+            allele_desc = alignment["allele_desc"]
+            serotype = SerotypeHelper.getSerotype(allele_desc)
+            # list of existing seqs in new_dict
+            seq_list = [allele['seq']
+                            for alleles in new_dict.values()
+                                for allele in alleles]
+            new_item['gene'] = getGeneName(allele_desc)
+            # skip repeated seq
+            if sbject in seq_list:
+                continue
+            new_item['seq'] = sbject
+            new_dict[serotype].append(new_item)
+        # make sure gene pair exist, otherwise, remove the singles
+        filterGenePair(new_dict)
+        # merge filtered dictionary to final dictionary
+        for serotype, alleles in new_dict.items():
+            for allele in alleles:
+                # add only non-repeated sequence
+                if allele['seq'] not in serotype_dict[serotype]:
+                    serotype_dict[serotype].append(allele['seq'])
+    JsonHelper.write_to_json(serotype_dict, "output/serotype_dict.json")

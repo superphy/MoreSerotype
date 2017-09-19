@@ -1,4 +1,4 @@
-from module import HeaderModifier, JsonHelper, SerotypeHelper
+from module import HeaderModifier, JsonHelper, SerotypeHelper, ResultAnalyzer
 import unittest
 
 STRAINS_FILE = "data/strains.json"
@@ -33,7 +33,34 @@ class TestModules(unittest.TestCase):
         self.assertTrue(SerotypeHelper.isSameClass("H1", {'O': '2', 'H': '1'}))
         self.assertFalse(SerotypeHelper.isSameClass("H1", {'O': '2', 'H': ''}))
         self.assertFalse(SerotypeHelper.isSameClass("O1", {'O': '', 'H': '123'}))
-
+    
+    def test_resultAnalyzer(self):
+        # one gene -> return the gene
+        self.assertEqual(ResultAnalyzer.getGeneName(
+            "8__wzx__wzx-O157__188 AB602252.1;O antigen flippase;O157"),
+            "wzx")
+        # no gene -> return ""
+        self.assertEqual(ResultAnalyzer.getGeneName(
+            "8__wsx__wsx-O157__188 AB602252.1;O antigen flippase;O157"),
+            "")
+        # more than one gene -> return first in list
+        self.assertEqual(ResultAnalyzer.getGeneName(
+            "8__wzt__wzm-O157__188 AB602252.1;O antigen flippase;O157"),
+            "wzt")
+        # null test
+        self.assertEqual(ResultAnalyzer.filterGenePair({}), {})
+        # single gene -> filtered
+        self.assertEqual(ResultAnalyzer.filterGenePair_helper(
+            {'O157':[{'gene':'wzx', 'seq':'ATCG'}]}, 'wzx'), 
+            {'O157': []})
+        # single gene -> filtered
+        self.assertEqual(ResultAnalyzer.filterGenePair(
+            {'O157':[{'gene':'wzx', 'seq':'ATCG'}]}),
+            {'O157': []})
+        # pair gene -> not filtered
+        self.assertEqual(ResultAnalyzer.filterGenePair(
+            {'O157': [{'gene': 'wzx', 'seq': 'ATCG'}, {'gene': 'wzy', 'seq': 'ATCG'}]}),
+            {'O157': [{'gene': 'wzx', 'seq': 'ATCG'}, {'gene': 'wzy', 'seq': 'ATCG'}]})
 
 if __name__ == '__main__':
     unittest.main()
