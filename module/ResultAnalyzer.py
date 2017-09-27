@@ -196,23 +196,22 @@ def expand_serotype_dict(serotype_dict_file, genome_dict_file):
     for genome_desc, alignments in genome_dict.items():
         new_dict = defaultdict(list)
         for alignment in alignments:
-            new_item = {
-                'seq':'',
-                'gene':'',
-                'des': "part of "+genome_desc.split("|")[0]}
-            sbject = alignment['Align Seq']['sbjct']
             allele_desc = alignment["allele_desc"]
+            sbject = alignment['Align Seq']['sbjct']
             serotype = getSerotype(allele_desc)
             # list of existing seqs in new_dict
             seq_list = [allele['seq']
-                            for alleles in new_dict.values()
-                                for allele in alleles]
-            new_item['gene'] = getGeneName(allele_desc)
+                for alleles in new_dict.values()
+                    for allele in alleles]
             # skip repeated seq
             if sbject in seq_list:
                 continue
-            new_item['seq'] = sbject
-            new_dict[serotype].append(new_item)
+            new_entry = {
+                'gene': getGeneName(allele_desc),
+                'seq': sbject,
+                'des': "part of "+genome_desc.split("|")[0]
+            }
+            new_dict[serotype].append(new_entry)
         # make sure gene pair exist, otherwise, remove the singles
         filterGenePair(new_dict)
         # merge filtered dictionary to final dictionary
@@ -228,6 +227,7 @@ def expand_serotype_dict(serotype_dict_file, genome_dict_file):
                     seq_hash[new_seq] = True
                     new_entry = {
                         'seq':allele['seq'],
+                        'gene':allele['gene'],
                         'num':num,
                         'des':allele['des']}
                     serotype_dict[serotype].append(new_entry)
