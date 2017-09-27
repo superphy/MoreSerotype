@@ -1,67 +1,21 @@
-from collections import defaultdict
-from Bio.Blast import NCBIXML
-from module import SerotypeHelper, JsonHelper
 import logging
+import re
+from collections import defaultdict
+
 import Bio
+from Bio import SeqIO
+from Bio.Blast import NCBIXML
 
-BLACKLIST_FILE = "output/blacklist_genomes.json"
+import definitions
+from module import JsonHelper, SerotypeHelper
+import os
+import logging
+
+log = logging.getLogger(__name__)
+
+BLACKLIST_FILE = os.path.join(definitions.OUTPUT_DIR, 'blacklist_genomes.json')
 DICT_FILE = "output/genome_dict.json"
-GENE_PAIRS = [('wzx','wzy'),('wzt','wzm')]
-
-
-
-def create_genome_result(result_file):
-    genome_dict = defaultdict(list)
-    blacklist_genomes = []
-    blast_result = NCBIXML.parse(open(result_file))
-    if not blast_result:
-        return
-    for iteration in blast_result:
-        if not iteration.alignments:
-            continue
-        allele_desc = iteration.query
-        allele_serotype = SerotypeHelper.getSerotype(allele_desc)
-        for alignment in iteration.alignments:
-            if not alignment.hsps:
-                continue
-            genome_desc = alignment.hit_def
-            if genome_desc in blacklist_genomes:
-                continue
-            genome_serotypes = SerotypeHelper.getSerotypes(genome_desc)
-            is_mismatch = SerotypeHelper.isMismatch(allele_serotype, genome_serotypes)
-            is_same_class = SerotypeHelper.isSameClass(allele_serotype, genome_serotypes)
-            for hsp in alignment.hsps:
-                match_len = hsp.identities
-                query_len = iteration.query_length
-                percent_identity = match_len / query_len
-                if percent_identity < 0.97 or not is_same_class:
-                    continue
-                if match_len == query_len:
-                    if is_mismatch:
-                        print("{0} and {1} are mismatch. {1} added to blacklist".format(allele_desc, genome_desc))
-                        blacklist_genomes.append(genome_desc)
-                    continue
-                new_entry = {
-                    "allele_desc": allele_desc,
-                    "genome_desc": genome_desc,
-                    "identity": "{}/{}".format(hsp.identities, iteration.query_length),
-                    "Align Seq": {
-                        "query": hsp.query,
-                        "match": hsp.match,
-                        "sbjct": hsp.sbjct
-                    }
-                }
-                genome_dict[genome_desc].append(new_entry)
-    # sort genome_dict by identity
-    genome_dict_sorted = {}
-    for genome_desc, alignments in genome_dict.items():
-        #  filter out alleles associated with blacklisted genome
-        if genome_desc in blacklist_genomes:
-            continue
-        genome_dict_sorted[genome_desc] = sorted(alignments, key=lambda alignment: alignment["identity"], reverse=True)
-        
-    JsonHelper.write_to_json(genome_dict_sorted,DICT_FILE)
-    JsonHelper.write_to_json(blacklist_genomes, BLACKLIST_FILE)
+GENE_PAIRS = [('wzx', 'wzy'), ('wzt', 'wzm')]
 
 def filterGenePair_helper(allele_dict, gene):
     for serotype, alleles in allele_dict.items():
@@ -101,17 +55,143 @@ def filterGenePair(allele_dict):
     return allele_dict
 
 def getGeneName(allele_desc):
-    for a, b in GENE_PAIRS:
-        if a in allele_desc:
-            return a
-        if b in allele_desc:
-            return b
+    for gene_name in definitions.GENE_LIST:
+        if gene_name in allele_desc:
+            return gene_name
+    log.info("No gene name found for %s", allele_desc)
     return ""
 
-def addUsefulAllele():
-    genome_dict = JsonHelper.read_from_json(DICT_FILE)
-    serotype_dict = JsonHelper.read_from_json("output/serotype_dict.json")
+def getSerotypes(str):
+    serotypes = {'O':'', 'H':''}
+    for key, value in serotypes.items():
+        regex = re.compile("(?<!(Non-))("+key+"\d{1,3})(?!\d)")
+        results = regex.findall(str)
+        results_len = len(results)
+        if results_len > 0:
+            serotypes[key] = results[0][1][1:]
+    return serotypes
+
+
+def getSerotype(str):
+    serotypes = ""
+    regex = re.compile("(?<!(Non-))((O|H)\d{1,3})(?!\d)")
+    results = regex.findall(str)
+    results_len = len(results)
+    if results_len > 0:
+        return results[0][1]
+    return ''
+
+def isMismatch(allele_serotype, genome_serotype):
+    if not allele_serotype:
+        return False
+    serotype_type = allele_serotype[0]
+    if genome_serotype[serotype_type] == '':
+        return False
+    if allele_serotype != serotype_type + genome_serotype[serotype_type]:
+        # print(allele_serotype, genome_serotype, " are mismatch")
+        return True
+    return False
+
+def isSameClass(allele_serotype, genome_serotype):
+    if not allele_serotype:
+        return False
+    serotype_type = allele_serotype[0]
+    if genome_serotype[serotype_type] != '':
+        return True
+    return False
+
+def initialize_serotype_dict():
+    serotype_dict_file = 'output/serotype_dict.json'
+    serotype_dict = defaultdict(list)
+    allele_seqs = list(SeqIO.parse(definitions.SEROTYPED_ALLELE, 'fasta'))
+    for allele_seq in allele_seqs:
+        desc = allele_seq.description
+        serotype = getSerotype(desc)
+        if serotype == "":
+            # These alleles have novel serotype. Ignored for now.
+            continue
+        new_entry = {
+            "des": desc,
+            "seq": str(allele_seq.seq),
+            "gene": getGeneName(desc),
+            "num": len(serotype_dict[serotype])+1
+        }
+        serotype_dict[serotype].append(new_entry)
+    allele_count = sum(len(x) for x in serotype_dict.values())
+    log.info("Serotype dictionary contains %d entries", allele_count)
+    JsonHelper.write_to_json(serotype_dict, serotype_dict_file)
+    return serotype_dict_file
+
+
+
+
+def create_genome_result(blast_result_file):
+    '''
+    Return genome_output filepath
+    '''
+    genome_dict = defaultdict(list)
+    blacklist_genomes = []
+    blast_result = NCBIXML.parse(open(blast_result_file))
+    if not blast_result:
+        return
+    for iteration in blast_result:
+        if not iteration.alignments:
+            continue
+        allele_desc = iteration.query
+        allele_serotype = getSerotype(allele_desc)
+        for alignment in iteration.alignments:
+            if not alignment.hsps:
+                continue
+            genome_desc = alignment.hit_def
+            if genome_desc in blacklist_genomes:
+                continue
+            genome_serotypes = getSerotypes(genome_desc)
+            is_mismatch = isMismatch(allele_serotype, genome_serotypes)
+            is_same_class = isSameClass(allele_serotype, genome_serotypes)
+            for hsp in alignment.hsps:
+                match_len = hsp.identities
+                query_len = iteration.query_length
+                percent_identity = match_len / query_len
+                if percent_identity < 0.97 or not is_same_class:
+                    continue
+                if match_len == query_len:
+                    if is_mismatch:
+                        log.debug("{0} and {1} are mismatch. {1} added to blacklist".format(allele_desc, genome_desc))
+                        blacklist_genomes.append(genome_desc)
+                    continue
+                new_entry = {
+                    "allele_desc": allele_desc,
+                    "genome_desc": genome_desc,
+                    "identity": "{}/{}".format(hsp.identities, iteration.query_length),
+                    "Align Seq": {
+                        "query": hsp.query,
+                        "match": hsp.match,
+                        "sbjct": hsp.sbjct
+                    }
+                }
+                genome_dict[genome_desc].append(new_entry)
+    # sort genome_dict by identity
+    genome_dict_sorted = {}
+    for genome_desc, alignments in genome_dict.items():
+        #  filter out alleles associated with blacklisted genome
+        if genome_desc in blacklist_genomes:
+            continue
+        genome_dict_sorted[genome_desc] = sorted(alignments, key=lambda alignment: alignment["identity"], reverse=True)
+    genome_output_file = os.path.join(definitions.OUTPUT_DIR, 'genome_output.json')
+    
+    JsonHelper.write_to_json(genome_dict_sorted, genome_output_file)
+    JsonHelper.write_to_json(blacklist_genomes, BLACKLIST_FILE)
+    return genome_output_file
+
+
+def expand_serotype_dict(serotype_dict_file, genome_dict_file):
+    '''
+    Expand serotype_dict.json by adding new alleles from blast result
+    '''
+    genome_dict = JsonHelper.read_from_json(genome_dict_file)
+    serotype_dict = JsonHelper.read_from_json(serotype_dict_file)
     seq_hash = {}
+    log.info("Start expanding serotype dictionary")
     # fill serotype_dict
     for genome_desc, alignments in genome_dict.items():
         new_dict = defaultdict(list)
@@ -122,7 +202,7 @@ def addUsefulAllele():
                 'des': "part of "+genome_desc.split("|")[0]}
             sbject = alignment['Align Seq']['sbjct']
             allele_desc = alignment["allele_desc"]
-            serotype = SerotypeHelper.getSerotype(allele_desc)
+            serotype = getSerotype(allele_desc)
             # list of existing seqs in new_dict
             seq_list = [allele['seq']
                             for alleles in new_dict.values()
@@ -151,4 +231,7 @@ def addUsefulAllele():
                         'num':num,
                         'des':allele['des']}
                     serotype_dict[serotype].append(new_entry)
+
+    allele_count = sum(len(x) for x in serotype_dict.values())
+    log.info("Serotype dictionary contains %d entries", allele_count)
     JsonHelper.write_to_json(serotype_dict, "output/serotype_dict.json")

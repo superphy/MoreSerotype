@@ -1,5 +1,8 @@
 import json
 import os
+import logging
+
+log = logging.getLogger(__name__)
 
 def write_to_json(data, output_filepath):
     '''
@@ -11,7 +14,7 @@ def write_to_json(data, output_filepath):
     with open(output_filepath, 'w') as handler:
         json.dump(data, handler, indent=4, separators=(',', ': '))
         handler.close()
-    print("data with {} elements written to {}".format(len(data), output_filepath))
+    log.debug("data with {} elements written to {}".format(len(data), output_filepath))
 
 def read_from_json(input_filepath):
     '''
@@ -20,5 +23,5 @@ def read_from_json(input_filepath):
     with open(input_filepath) as handler:
         data = json.load(handler)
         handler.close()
-    print("Read {} elements from {}".format(len(data), input_filepath))
+    log.debug("Read {} elements from {}".format(len(data), input_filepath))
     return data

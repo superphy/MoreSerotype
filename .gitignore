@@ -1,6 +1,3 @@
-*.fasta
+temp/
+output/
 *.pyc
-*.json
-*.xml
-data/DB*
-test/

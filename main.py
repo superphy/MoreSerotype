@@ -1,33 +1,34 @@
-from module import DownloadMetadata, FilterGenome, RetrieveGenome, BlastHelper, SerotypeHelper, ResultAnalyzer
+import logging
 import os
 
-def main():
-    MORIA_DB_DIR = '/home/sam/moria/enterobase_db/'
-    EXP_FILE = "data/experiment.json"
-    FILTERED_FILENAMES_FILE = 'data/genome_filenames_filtered.json'
-    GENOME_DIR = "data/filtered_genome/"
-    ALLELE_FILE = "data/EcOH.fasta"
-    BLAST_DB = "data/DB/SerotypedGenome.fasta"
-    BLAST_RESULT = "output/blast_result.xml"
+import definitions
+from module import (BlastHelper, DownloadMetadata, FilterGenome, JsonHelper,
+                    ResultAnalyzer, RetrieveGenome, SerotypeHelper, LoggingHelper)
 
-    if not os.path.exists(MORIA_DB_DIR):
-        raise Warning("Database is not found!")
-    
+log = logging.getLogger(__name__)
+
+def main():
+
+    LoggingHelper.setup_logging()
+    definitions.make_directories()
+    if not os.path.exists(definitions.DB_DIR):
+        log.fatal("Database is not found!", exc_info=1)
     # 1. Get the metadata from enterobase.warwick.ac.uk
-    DownloadMetadata.download_metadata(EXP_FILE)
+    strains_file = DownloadMetadata.download_metadata()
     # 2. Get a list of all genomes filename that has corresponding serotyped meta file
-    FilterGenome.filter_genome(MORIA_DB_DIR, FILTERED_FILENAMES_FILE)
+    selected_genomes_file = FilterGenome.filter_genome(strains_file)
     # 3. copy all qualified genome data in from database
     # and Add serotype and assembly barcode to header for easier mapping later on
-    RetrieveGenome.retrieve_genomes(MORIA_DB_DIR, FILTERED_FILENAMES_FILE, GENOME_DIR)
+    RetrieveGenome.retrieve_genomes(strains_file, selected_genomes_file)
     # 5. Create blast database from extracted+modified genome files
-    BlastHelper.makeBlastDB(GENOME_DIR, BLAST_DB)
+    BlastHelper.makeBlastDB()
     # 6. Query the database with all the allele file we have
-    BlastHelper.blastn(ALLELE_FILE, BLAST_DB, BLAST_RESULT)
+    blast_output = BlastHelper.blastn(definitions.SEROTYPED_ALLELE, definitions.BLAST_DB)
     # 7. Create a json formatted serotype dictionary of all known/confident allele sequences
-    ResultAnalyzer.create_genome_result(BLAST_RESULT)
-    SerotypeHelper.initialize_dict(ALLELE_FILE)
-    ResultAnalyzer.addUsefulAllele()
+    genome_dict_file = ResultAnalyzer.create_genome_result(blast_output)
+    serotype_dict_file = ResultAnalyzer.initialize_serotype_dict()
+    ResultAnalyzer.expand_serotype_dict(serotype_dict_file, genome_dict_file)
+    log.info("Program completed")
 
 if __name__ == '__main__':
     main()
