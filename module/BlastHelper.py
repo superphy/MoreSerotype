@@ -48,7 +48,8 @@ def blastn(query_file, db_file):
         'blastn',
         '-query', query_file,
         '-db', db_file,
-        '-perc_identity', '97',
+        '-perc_identity', "97",
+        '-qcov_hsp_perc', "97",
         '-out', output_file,
         '-outfmt', '5'
     ]

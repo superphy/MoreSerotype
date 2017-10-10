@@ -157,7 +157,17 @@ def create_genome_result(blast_result_file):
                 if match_len == query_len:
                     if is_mismatch:
                         log.debug("{0} and {1} are mismatch. {1} added to blacklist".format(allele_desc, genome_desc))
-                        blacklist_genomes.append(genome_desc)
+                        allele_serotypes = getSerotypes(allele_serotype)
+                        blacklist_entry = {
+                            'genome name': genome_desc.split('|')[0],
+                            'allele name': allele_desc,
+                            'given O': genome_serotypes['O'],
+                            'given H': genome_serotypes['H'],
+                            'predicted O': allele_serotypes['O'],
+                            'predicted H': allele_serotypes['H'],
+                            'identity': percent_identity
+                        }
+                        blacklist_genomes.append(blacklist_entry)
                     continue
                 new_entry = {
                     "allele_desc": allele_desc,
