@@ -81,7 +81,7 @@ def find_gene_presence(marker_file):
         '-query', marker_file,
         '-db', '/home/sam/Projects/MoreSerotype/temp/blast_db/serotyped_blastdb',
         '-perc_identity', "97",
-        '-qcov_hsp_perc', "90",
+        '-qcov_hsp_perc', "97",
         '-max_target_seqs', '6000', # this number needs to be greater than number of genome
         '-max_hsps', '1', # we only want to know hit/no hit
         '-out', blast_result_file,

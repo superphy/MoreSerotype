@@ -24,14 +24,14 @@ def main():
     RetrieveGenome.retrieve_genomes(strains_file, selected_genomes_file)
     # 5. Create blast database from extracted+modified genome files
     BlastHelper.makeBlastDB()
-    '''
     # 6. Query the database with all the allele file we have
     blast_output = BlastHelper.blastn(definitions.SEROTYPED_ALLELE, definitions.BLAST_DB)
     # 7. Create a json formatted serotype dictionary of all known/confident allele sequences
+    '''
+    blast_output = '/home/sam/Projects/MoreSerotype/temp/blast_db/serotyped_blastdb.output'
     genome_dict_file = ResultAnalyzer.create_genome_result(blast_output)
-    serotype_dict_file = ResultAnalyzer.initialize_serotype_dict()
-    ResultAnalyzer.expand_serotype_dict(serotype_dict_file, genome_dict_file)
-    log.info("Program completed")
+    ResultAnalyzer.expand_serotype_dict(genome_dict_file)
+    log.info("Program completed")#
 
 if __name__ == '__main__':
     main()

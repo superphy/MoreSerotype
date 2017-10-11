@@ -43,7 +43,7 @@ def makeBlastDB():
 
 def blastn(query_file, db_file):
     log.info('Performing blastn search with %s on %s', definitions.SEROTYPED_ALLELE, definitions.BLAST_DB)
-    output_file = db_file+'.xml'
+    output_file = db_file+'.output'
     cmd = [
         'blastn',
         '-query', query_file,
@@ -53,7 +53,7 @@ def blastn(query_file, db_file):
         '-max_target_seqs', '6000', # this number needs to be greater than number of genome
         '-max_hsps', '1',
         '-out', output_file,
-        '-outfmt', '5'
+        '-outfmt', '6 qseqid qlen qseq sseqid length sseq pident qframe'
     ]
     completed_process = subprocess.run(
         cmd,
