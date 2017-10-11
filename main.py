@@ -3,7 +3,7 @@ import os
 
 import definitions
 from module import (BlastHelper, DownloadMetadata, FilterGenome, JsonHelper,
-                    ResultAnalyzer, RetrieveGenome, SerotypeHelper, LoggingHelper)
+                    ResultAnalyzer, RetrieveGenome, LoggingHelper)
 
 log = logging.getLogger(__name__)
 
@@ -13,7 +13,8 @@ def main():
     definitions.make_directories()
     if not os.path.exists(definitions.DB_DIR):
         log.fatal("Database is not found!", exc_info=1)
-    
+        return
+    '''
     # 1. Get the metadata from enterobase.warwick.ac.uk
     strains_file = DownloadMetadata.download_metadata()
     # 2. Get a list of all genomes filename that has corresponding serotyped meta file
@@ -23,6 +24,7 @@ def main():
     RetrieveGenome.retrieve_genomes(strains_file, selected_genomes_file)
     # 5. Create blast database from extracted+modified genome files
     BlastHelper.makeBlastDB()
+    '''
     # 6. Query the database with all the allele file we have
     blast_output = BlastHelper.blastn(definitions.SEROTYPED_ALLELE, definitions.BLAST_DB)
     # 7. Create a json formatted serotype dictionary of all known/confident allele sequences

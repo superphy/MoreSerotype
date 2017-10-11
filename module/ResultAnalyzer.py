@@ -1,4 +1,5 @@
 import logging
+import os
 import re
 from collections import defaultdict
 
@@ -7,9 +8,7 @@ from Bio import SeqIO
 from Bio.Blast import NCBIXML
 
 import definitions
-from module import JsonHelper, SerotypeHelper
-import os
-import logging
+from module import JsonHelper
 
 log = logging.getLogger(__name__)
 
@@ -130,6 +129,7 @@ def create_genome_result(blast_result_file):
     Return genome_output filepath
     '''
     genome_dict = defaultdict(list)
+    blacklist_genome_names = []
     blacklist_genomes = []
     blast_result = NCBIXML.parse(open(blast_result_file))
     if not blast_result:
@@ -143,7 +143,7 @@ def create_genome_result(blast_result_file):
             if not alignment.hsps:
                 continue
             genome_desc = alignment.hit_def
-            if genome_desc in blacklist_genomes:
+            if genome_desc in blacklist_genome_names:
                 continue
             genome_serotypes = getSerotypes(genome_desc)
             is_mismatch = isMismatch(allele_serotype, genome_serotypes)
@@ -164,9 +164,9 @@ def create_genome_result(blast_result_file):
                             'given O': genome_serotypes['O'],
                             'given H': genome_serotypes['H'],
                             'predicted O': allele_serotypes['O'],
-                            'predicted H': allele_serotypes['H'],
-                            'identity': percent_identity
+                            'predicted H': allele_serotypes['H']
                         }
+                        blacklist_genome_names.append(genome_desc)
                         blacklist_genomes.append(blacklist_entry)
                     continue
                 new_entry = {
