@@ -12,7 +12,7 @@ from module import JsonHelper
 
 LOG = logging.getLogger(__name__)
 
-BLACKLIST_FILE = os.path.join(definitions.OUTPUT_DIR, 'blacklist_genomes.json')
+BLACKDICT_FILE = os.path.join(definitions.OUTPUT_DIR, 'blacklist_dict.json')
 DICT_FILE = "output/genome_dict.json"
 GENE_PAIRS = [('wzx', 'wzy'), ('wzt', 'wzm')]
 
@@ -49,11 +49,13 @@ def filter_lone_pair(serotype_dict):
                 for allele in alleles
     ]
     for a, b in GENE_PAIRS:
-        if (a in gene_list) and (b not in gene_list):
-            LOG.debug("mismatch occured.")
+        if a in gene_list and b in gene_list:
+            continue
+        elif a not in gene_list and b not in gene_list:
+            continue
+        else:
+            LOG.debug("Mismatch occured. Remove %s and %s from current iteration.", a, b)
             serotype_dict = filter_lone_pair_helper(serotype_dict, a)
-        if (b in gene_list) and (a not in gene_list):
-            LOG.debug("mismatch occured.")
             serotype_dict = filter_lone_pair_helper(serotype_dict, b)
     return serotype_dict
 
@@ -107,8 +109,7 @@ def create_genome_result(blast_output_file):
     LOG.info("Parsing blast results in %s", blast_output_file)
 
     genome_dict = defaultdict(list)
-    blacklist = []
-    blacklist_hash = {}
+    blacklist_dict = {}
     result_handle = open(blast_output_file, 'r')
 
     for line in result_handle:
@@ -132,26 +133,33 @@ def create_genome_result(blast_output_file):
         genome_name = genome_desc.split("|")[0]
         genome_serotypes = getSerotypes(blast_record['sseqid'])
         identity = float(blast_record['pident']) / 100.0
+        length = blast_record['length']
+        qlen = blast_record['qlen']
         
-        if allele_antigen not in genome_serotypes.keys():
+        if allele_antigen == "":
+            # These alleles have novel serotype. Ignored for now.
+            continue
+        if genome_serotypes[allele_antigen] == '':
             # allele and genome have different antigen
             continue
         if allele_serotypes[allele_antigen] != genome_serotypes[allele_antigen]:
             # allele and genome serotype mismatch
-            if identity >= 1:
+            if identity >= 1 and length==qlen:
                 # perfect mismatch
                 LOG.debug("{0} and {1} are mismatch. {1} added to blacklist".format(allele_name, genome_name))
-                if genome_name not in blacklist_hash:
-                    blacklist_entry = {
-                        'genome name': genome_name,
-                        'allele name': allele_name,
-                        'given O': genome_serotypes['O'],
-                        'given H': genome_serotypes['H'],
-                        'predicted O': allele_serotypes['O'],
-                        'predicted H': allele_serotypes['H']
-                    }
-                    blacklist.append(blacklist_entry)
-                    blacklist_hash[genome_name] = True
+                new_entry = {
+                    'genome name': genome_name,
+                    'allele name': allele_name,
+                    'given O': genome_serotypes['O'],
+                    'given H': genome_serotypes['H'],
+                    'predicted O': allele_serotypes['O'],
+                    'predicted H': allele_serotypes['H']
+                }
+                if genome_name in blacklist_dict:
+                    # append to existing entry
+                    existing_entry = blacklist_dict[genome_name]
+                    new_entry = merge_blacklist_entry(existing_entry, new_entry)
+                blacklist_dict[genome_name]=new_entry
                 continue
         else:
             # matching serotype
@@ -172,9 +180,10 @@ def create_genome_result(blast_output_file):
     for genome_desc, alignments in genome_dict.items():
         #  filter out alleles associated with blacklisted genome
         genome_dict_sorted[genome_desc] = sorted(alignments, key=lambda alignment: alignment["identity"], reverse=True)
+    blacklist_list = list(blacklist_dict.values())
     genome_output_file = os.path.join(definitions.OUTPUT_DIR, 'genome_output.json')
     blacklist_dict_file = os.path.join(definitions.OUTPUT_DIR, 'blacklist_dict.json')
-    JsonHelper.write_to_json(blacklist, blacklist_dict_file)
+    JsonHelper.write_to_json(blacklist_list, blacklist_dict_file)
     JsonHelper.write_to_json(genome_dict_sorted, genome_output_file)
     return genome_output_file
 
@@ -184,21 +193,21 @@ def expand_serotype_dict(genome_dict_file):
     Expand serotype_dict.json by adding new alleles from blast result
     '''
     serotype_dict = initialize_serotype_dict()
-
     genome_dict = JsonHelper.read_from_json(genome_dict_file)
     seq_hash = {}
     LOG.info("Start expanding serotype dictionary")
     for alignments in genome_dict.values():
         # create sub-dictionary for this genome
         new_dict = defaultdict(list)
-        new_dict_hash = {}
         for alignment in alignments:
             allele_name = alignment["allele_name"]
             genome_name = alignment['genome_name']
             sbject = alignment['Align Seq']['sbjct']
+            gene_name = getGeneName(allele_name)
             serotypes = getSerotypes(allele_name)
             antigen = getAntigen(serotypes)
-            gene_name = getGeneName(allele_name)
+            serotype = serotypes[antigen]
+            serotype_tag = antigen+serotype
             # skip repeated seq
             if sbject in seq_hash:
                 continue
@@ -209,15 +218,15 @@ def expand_serotype_dict(genome_dict_file):
                 'seq': sbject,
                 'name': "part_of_"+genome_name
             }
-            new_dict[serotypes[antigen]].append(new_entry)
+            new_dict[serotype_tag].append(new_entry)
         # make sure gene pair exist, otherwise, remove the singles
         new_dict = filter_lone_pair(new_dict)
         # merge filtered dictionary to final dictionary
         serotype_dict = merge_serotype_dict(new_dict, serotype_dict)
-
     allele_count = sum(len(x) for x in serotype_dict.values())
     LOG.info("Serotype dictionary contains %d entries", allele_count)
     JsonHelper.write_to_json(serotype_dict, "output/serotype_dict.json")
+    return allele_count
 
 def initialize_serotype_dict():
     '''
@@ -233,13 +242,14 @@ def initialize_serotype_dict():
             # These alleles have novel serotype. Ignored for now.
             continue
         serotype = serotypes[antigen]
+        serotype_tag = antigen+serotype
         new_entry = {
             "name": allele_name,
             "seq": str(allele_seq.seq),
             "gene": getGeneName(allele_name),
-            "num": len(serotype_dict[serotype])+1
+            "num": len(serotype_dict[serotype_tag])+1
         }
-        serotype_dict[antigen+serotype].append(new_entry)
+        serotype_dict[serotype_tag].append(new_entry)
     allele_count = sum(len(x) for x in serotype_dict.values())
     LOG.info("Serotype dictionary contains %d entries", allele_count)
     return serotype_dict
@@ -268,3 +278,25 @@ def merge_serotype_dict(new_dict, old_dict):
                 seq_list.append(new_entry['seq'])
                 old_dict[serotype].append(new_entry)
     return old_dict
+
+def merge_blacklist_entry(existing_entry, new_entry):
+    existing_allele = existing_entry['allele name']
+    new_allele = new_entry['allele name']
+    for antigen in ['O', 'H']:
+        given_serotype = existing_entry['given '+antigen]
+        new_serotype = new_entry['predicted '+antigen]
+        if new_serotype is '':
+            continue
+        old_serotype = existing_entry['predicted '+antigen]
+        if new_serotype in old_serotype.split('|'):
+            continue
+        if old_serotype is '':
+            existing_entry['predicted '+antigen] = new_serotype
+            existing_entry['allele name'] = '|'.join([existing_allele, new_allele])
+            continue
+        # multiple prediction
+        existing_entry['predicted '+antigen] = '|'.join([old_serotype, new_serotype])
+        existing_entry['allele name'] = '|'.join([existing_allele, new_allele])
+        LOG.warning("multiple predictions found for genome,%s", existing_entry['genome name'])
+        LOG.warning("%s antigen, old: %s %s, new: %s, given: %s", antigen, existing_allele, old_serotype, new_serotype, given_serotype)
+    return existing_entry

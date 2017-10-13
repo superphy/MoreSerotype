@@ -1,4 +1,7 @@
 temp/
 output/
 *.pyc
+*.log
+*.json
+*.csv
 .vscode/
