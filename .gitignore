@@ -5,3 +5,4 @@ output/
 *.json
 *.csv
 .vscode/
+mini_experiment/.ipynb_checkpoints/
