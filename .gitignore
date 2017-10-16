@@ -3,6 +3,5 @@ output/
 *.pyc
 *.log
 *.json
-*.csv
 .vscode/
 mini_experiment/.ipynb_checkpoints/
