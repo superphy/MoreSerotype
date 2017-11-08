@@ -22,14 +22,19 @@ def adapt_ectyper(serotype_dict_f):
         for allele in allele_list:
             # information for ectyper_dict entry
             serotype_class = serotype[0]
-            allele_id = '-'.join([serotype, str(allele['num'])])
             gene = allele['gene']
+            allele_id = '-'.join([serotype, str(allele['num']), gene])
+            name = allele['name']
             serotype = serotype
 
             ectyper_dict_entry = {
                 "gene" : gene,
-                "allele" : serotype
+                "allele" : serotype,
+                "name": name,
+                "qcovhsp": allele.get('qcovhsp')
             }
+            if 'part_of_' not in name:
+                allele_id = name.split(' ')[0]
             ectyper_dict[serotype_class][allele_id] = ectyper_dict_entry
             # information for ectyper_data entry
             allele_id = allele_id

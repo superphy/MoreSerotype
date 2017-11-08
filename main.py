@@ -14,7 +14,7 @@ def main():
     if not os.path.exists(definitions.DB_DIR):
         log.fatal("Database is not found!", exc_info=1)
         return
-    '''
+
     # 1. Get the metadata from enterobase.warwick.ac.uk
     strains_file = DownloadMetadata.download_metadata()
     # 2. Get a list of all genomes filename that has corresponding serotyped meta file
@@ -25,13 +25,13 @@ def main():
     # 5. Create blast database from extracted+modified genome files
     BlastHelper.makeBlastDB()
     # 6. Query the database with all the allele file we have
-    blast_output = BlastHelper.blastn(definitions.SEROTYPED_ALLELE, definitions.BLAST_DB)
+
+    # blast_output = BlastHelper.blastn(definitions.SEROTYPED_ALLELE, definitions.BLAST_DB)
     # 7. Create a json formatted serotype dictionary of all known/confident allele sequences
-    '''
-    blast_output = '/home/sam/Projects/MoreSerotype/temp/blast_db/serotyped_blastdb.output'
-    genome_dict_file = ResultAnalyzer.create_genome_result(blast_output)
-    ResultAnalyzer.expand_serotype_dict(genome_dict_file)
-    log.info("Program completed")#
+    # blast_output = '/home/sam/Projects/MoreSerotype/temp/blast_db/serotyped_blastdb.output'
+    # genome_dict_file = ResultAnalyzer.create_genome_result(blast_output)
+    # ResultAnalyzer.expand_serotype_dict(genome_dict_file)
+    # log.info("Program completed")#
 
 if __name__ == '__main__':
     main()

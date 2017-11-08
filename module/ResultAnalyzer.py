@@ -123,7 +123,8 @@ def create_genome_result(blast_output_file):
             'sseqid': fields[3],
             'length': fields[4],
             'sseq': fields[5],
-            'pident': fields[6]
+            'pident': fields[6],
+            'qcovhsp': fields[7]
         }
 
         allele_name = blast_record['qseqid']
@@ -133,8 +134,7 @@ def create_genome_result(blast_output_file):
         genome_name = genome_desc.split("|")[0]
         genome_serotypes = getSerotypes(blast_record['sseqid'])
         identity = float(blast_record['pident']) / 100.0
-        length = blast_record['length']
-        qlen = blast_record['qlen']
+        qcovhsp = float(blast_record['qcovhsp']) / 100.0
         
         if allele_antigen == "":
             # These alleles have novel serotype. Ignored for now.
@@ -144,7 +144,7 @@ def create_genome_result(blast_output_file):
             continue
         if allele_serotypes[allele_antigen] != genome_serotypes[allele_antigen]:
             # allele and genome serotype mismatch
-            if identity >= 1 and length==qlen:
+            if identity >= 1 and qcovhsp >= 1:
                 # perfect mismatch
                 LOG.debug("{0} and {1} are mismatch. {1} added to blacklist".format(allele_name, genome_name))
                 new_entry = {
@@ -169,6 +169,7 @@ def create_genome_result(blast_output_file):
                     "allele_name": allele_name,
                     "genome_name": genome_name,
                     "identity": identity,
+                    "qcovhsp": qcovhsp,
                     "Align Seq": {
                         "query": blast_record['qseq'],
                         "sbjct": blast_record['sseq']
@@ -192,7 +193,7 @@ def expand_serotype_dict(genome_dict_file):
     '''
     Expand serotype_dict.json by adding new alleles from blast result
     '''
-    serotype_dict = initialize_serotype_dict()
+    serotype_dict = defaultdict(list)
     genome_dict = JsonHelper.read_from_json(genome_dict_file)
     seq_hash = {}
     LOG.info("Start expanding serotype dictionary")
@@ -216,13 +217,15 @@ def expand_serotype_dict(genome_dict_file):
             new_entry = {
                 'gene': gene_name,
                 'seq': sbject,
-                'name': "part_of_"+genome_name
+                'name': "part_of_"+genome_name,
+                'qcovhsp': alignment['qcovhsp']
             }
             new_dict[serotype_tag].append(new_entry)
         # make sure gene pair exist, otherwise, remove the singles
         new_dict = filter_lone_pair(new_dict)
         # merge filtered dictionary to final dictionary
         serotype_dict = merge_serotype_dict(new_dict, serotype_dict)
+    serotype_dict = merge_serotype_dict(initialize_serotype_dict(), serotype_dict)
     allele_count = sum(len(x) for x in serotype_dict.values())
     LOG.info("Serotype dictionary contains %d entries", allele_count)
     JsonHelper.write_to_json(serotype_dict, "output/serotype_dict.json")
@@ -270,7 +273,8 @@ def merge_serotype_dict(new_dict, old_dict):
                 'seq':allele['seq'],
                 'gene':allele['gene'],
                 'num':num,
-                'name':allele['name']
+                'name':allele['name'],
+                'qcovhsp':allele.get('qcovhsp')
             }
             if new_entry['seq'] in seq_list:
                 continue
@@ -297,6 +301,6 @@ def merge_blacklist_entry(existing_entry, new_entry):
         # multiple prediction
         existing_entry['predicted '+antigen] = '|'.join([old_serotype, new_serotype])
         existing_entry['allele name'] = '|'.join([existing_allele, new_allele])
-        LOG.warning("multiple predictions found for genome,%s", existing_entry['genome name'])
-        LOG.warning("%s antigen, old: %s %s, new: %s, given: %s", antigen, existing_allele, old_serotype, new_serotype, given_serotype)
+        LOG.debug("multiple predictions found for genome,%s", existing_entry['genome name'])
+        LOG.debug("%s antigen, old: %s %s, new: %s, given: %s", antigen, existing_allele, old_serotype, new_serotype, given_serotype)
     return existing_entry

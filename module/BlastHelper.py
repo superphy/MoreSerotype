@@ -49,11 +49,11 @@ def blastn(query_file, db_file):
         '-query', query_file,
         '-db', db_file,
         '-perc_identity', "97",
-        '-qcov_hsp_perc', "90",
+        '-qcov_hsp_perc', "97",
         '-max_target_seqs', '6000', # this number needs to be greater than number of genome
         '-max_hsps', '1',
         '-out', output_file,
-        '-outfmt', '6 qseqid qlen qseq sseqid length sseq pident qframe'
+        '-outfmt', '6 qseqid qlen qseq sseqid length sseq pident qcovhsp'
     ]
     completed_process = subprocess.run(
         cmd,

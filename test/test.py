@@ -40,6 +40,8 @@ class TestModules(unittest.TestCase):
         self.assertEqual(ResultAnalyzer.filter_lone_pair(
             {'O157': [{'gene': 'wzx', 'seq': 'ATCG'}, {'gene': 'wzy', 'seq': 'ATCG'}]}),
             {'O157': [{'gene': 'wzx', 'seq': 'ATCG'}, {'gene': 'wzy', 'seq': 'ATCG'}]})
+        # real data
+        data_in = 
     
     def test_getSerotypes(self):
         self.assertEqual(ResultAnalyzer.getAntigen(ResultAnalyzer.getSerotypes('asdH3333fsdfO222H3333')), 'O')
